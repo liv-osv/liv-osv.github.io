@@ -4,3 +4,5 @@ Generates vivid in-between colors from your six anchor colors, then keeps only c
 This color generator splices together the six core ML colors to generate new colors that meet WCAG contrast requirements for legibility when paired with either black or white. Use it to generate colors to use for presentations, etc. Contrast ratios and suggested pairing (either #FFFFFF or #000000) are included. Play with shuffling the anchor color order to reveal surprising combinations!
 
 Please note: this generator does NOT create full color palettes accessible to all vision differences. Colors here are meant to be contrast-accessible when paired with black or white only. 
+
+Visit the generator at https://liv-osv.github.io/accessible-color-generator/
