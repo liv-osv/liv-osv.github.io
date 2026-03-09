@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Accessible Color Generator</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Helvetica, Arial, sans-serif;
+      background: #111;
+      color: #f5f5f5;
+    }
+
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 20px 48px;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: 28px;
+      line-height: 1.1;
+    }
+
+    p {
+      margin: 0 0 18px;
+      color: #d0d0d0;
+      line-height: 1.5;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-bottom: 24px;
+      align-items: center;
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 12px 18px;
+      font-size: 14px;
+      cursor: pointer;
+      background: #f5f5f5;
+      color: #111;
+    }
+
+    button:hover {
+      opacity: 0.92;
+    }
+
+    label {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      color: #e5e5e5;
+    }
+
+    input[type="number"] {
+      width: 90px;
+      border: 1px solid #444;
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: #1b1b1b;
+      color: #fff;
+      font-size: 14px;
+    }
+
+    .anchors {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 10px;
+      margin: 20px 0 28px;
+    }
+
+    .anchor {
+      border-radius: 14px;
+      padding: 12px;
+      min-height: 72px;
+      display: flex;
+      align-items: end;
+      font-weight: bold;
+      letter-spacing: 0.02em;
+      box-shadow: 0 4px 18px rgba(0,0,0,0.25);
+    }
+
+    .results {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .swatch {
+      border-radius: 18px;
+      padding: 16px;
+      min-height: 260px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.3);
+      transition: transform 120ms ease;
+    }
+
+    .swatch:hover {
+      transform: translateY(-2px);
+    }
+
+    .topline {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .hex {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+    }
+
+    .small {
+      font-size: 12px;
+      line-height: 1.45;
+      opacity: 0.95;
+    }
+
+    .meta {
+      display: grid;
+      gap: 4px;
+      margin-top: 14px;
+      font-size: 13px;
+    }
+
+    .demo-stack {
+      display: grid;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .demo {
+      padding: 12px;
+      border-radius: 12px;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .demo-label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      margin-bottom: 6px;
+      opacity: 0.75;
+      text-transform: uppercase;
+    }
+
+    .footer-note {
+      margin-top: 28px;
+      font-size: 13px;
+      color: #b8b8b8;
+    }
+
+    .warning {
+      margin-top: 12px;
+      color: #ffcb6b;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Accessible Color Generator</h1>
+    <p>
+      Generates vivid <strong>in-between colors</strong> from your six anchor colors, then keeps only colors
+      that achieve at least <strong>7:1</strong> contrast with either black or white.
+      Each swatch includes black and white text previews.
+    </p>
+
+    <div class="controls">
+      <button id="generateBtn">Generate palette</button>
+      <button id="shuffleBtn">Shuffle anchor order</button>
+
+      <label>
+        Count
+        <input id="countInput" type="number" min="1" max="60" value="12" />
+      </label>
+
+      <label>
+        Contrast min
+        <input id="contrastInput" type="number" min="1" max="21" step="0.1" value="7" />
+      </label>
+    </div>
+
+    <div id="anchors" class="anchors"></div>
+    <div id="warning" class="warning"></div>
+    <div id="results" class="results"></div>
+
+    <div class="footer-note">
+      The generator still filters by WCAG contrast and recommends whichever of black or white performs better,
+      but the UI now shows both pairings so you can visually compare them.
+    </div>
+  </div>
+
+  <script>
+    const anchorColors = [
+      "#07aef5",
+      "#e5178f",
+      "#9477ff",
+      "#d9d900",
+      "#2fa85e",
+      "#e54500"
+    ];
+
+    const anchorsEl = document.getElementById("anchors");
+    const resultsEl = document.getElementById("results");
+    const warningEl = document.getElementById("warning");
+    const generateBtn = document.getElementById("generateBtn");
+    const shuffleBtn = document.getElementById("shuffleBtn");
+    const countInput = document.getElementById("countInput");
+    const contrastInput = document.getElementById("contrastInput");
+
+    function hexToRgb(hex) {
+      const clean = hex.replace("#", "");
+      return {
+        r: parseInt(clean.slice(0, 2), 16),
+        g: parseInt(clean.slice(2, 4), 16),
+        b: parseInt(clean.slice(4, 6), 16)
+      };
+    }
+
+    function rgbToHex(r, g, b) {
+      const toHex = (v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, "0");
+      return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+    }
+
+    function srgbToLinear(v) {
+      v /= 255;
+      return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    }
+
+    function relativeLuminance({ r, g, b }) {
+      const R = srgbToLinear(r);
+      const G = srgbToLinear(g);
+      const B = srgbToLinear(b);
+      return 0.2126 * R + 0.7152 * G + 0.0722 * B;
+    }
+
+    function contrastRatio(hex1, hex2) {
+      const L1 = relativeLuminance(hexToRgb(hex1));
+      const L2 = relativeLuminance(hexToRgb(hex2));
+      const lighter = Math.max(L1, L2);
+      const darker = Math.min(L1, L2);
+      return (lighter + 0.05) / (darker + 0.05);
+    }
+
+    function rgbToHsl(r, g, b) {
+      r /= 255;
+      g /= 255;
+      b /= 255;
+
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      let h, s;
+      const l = (max + min) / 2;
+
+      if (max === min) {
+        h = 0;
+        s = 0;
+      } else {
+        const d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+
+        switch (max) {
+          case r:
+            h = ((g - b) / d + (g < b ? 6 : 0)) * 60;
+            break;
+          case g:
+            h = ((b - r) / d + 2) * 60;
+            break;
+          default:
+            h = ((r - g) / d + 4) * 60;
+            break;
+        }
+      }
+
+      return { h, s, l };
+    }
+
+    function hueToRgb(p, q, t) {
+      if (t < 0) t += 1;
+      if (t > 1) t -= 1;
+      if (t < 1 / 6) return p + (q - p) * 6 * t;
+      if (t < 1 / 2) return q;
+      if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+      return p;
+    }
+
+    function hslToRgb(h, s, l) {
+      h = ((h % 360) + 360) % 360;
+      h /= 360;
+
+      let r, g, b;
+
+      if (s === 0) {
+        r = g = b = l;
+      } else {
+        const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+        const p = 2 * l - q;
+        r = hueToRgb(p, q, h + 1 / 3);
+        g = hueToRgb(p, q, h);
+        b = hueToRgb(p, q, h - 1 / 3);
+      }
+
+      return {
+        r: Math.round(r * 255),
+        g: Math.round(g * 255),
+        b: Math.round(b * 255)
+      };
+    }
+
+    function hexToHsl(hex) {
+      const { r, g, b } = hexToRgb(hex);
+      return rgbToHsl(r, g, b);
+    }
+
+    function hslToHex(h, s, l) {
+      const { r, g, b } = hslToRgb(h, s, l);
+      return rgbToHex(r, g, b);
+    }
+
+    function lerp(a, b, t) {
+      return a + (b - a) * t;
+    }
+
+    function lerpHue(h1, h2, t) {
+      let delta = ((h2 - h1 + 540) % 360) - 180;
+      return (h1 + delta * t + 360) % 360;
+    }
+
+    function clamp(v, min, max) {
+      return Math.max(min, Math.min(max, v));
+    }
+
+    function randomBetween(a, b) {
+      return a + Math.random() * (b - a);
+    }
+
+    function shuffleArray(arr) {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
+    }
+
+    function getContrastInfo(hex) {
+      const black = contrastRatio(hex, "#000000");
+      const white = contrastRatio(hex, "#ffffff");
+      const recommendedPair = black >= white ? "#000000" : "#ffffff";
+      const recommendedContrast = Math.max(black, white);
+
+      return {
+        black,
+        white,
+        recommendedPair,
+        recommendedContrast
+      };
+    }
+
+    function isMuddy(h, s, l) {
+      if (s < 0.58) return true;
+      if (l < 0.42 || l > 0.78) return true;
+
+      const inOliveZone = h >= 45 && h <= 85 && s < 0.78 && l < 0.62;
+      const inBrownZone = h >= 18 && h <= 42 && s < 0.75 && l < 0.58;
+
+      return inOliveZone || inBrownZone;
+    }
+
+    function generateCandidateFromPair(hexA, hexB) {
+      const a = hexToHsl(hexA);
+      const b = hexToHsl(hexB);
+
+      const t = Math.pow(Math.random(), 0.9);
+
+      let h = lerpHue(a.h, b.h, t);
+      let s = lerp(a.s, b.s, t);
+      let l = lerp(a.l, b.l, t);
+
+      s = clamp(s + randomBetween(0.04, 0.14), 0.6, 0.95);
+      l = clamp(l + randomBetween(0.02, 0.12), 0.46, 0.76);
+
+      h = (h + randomBetween(-6, 6) + 360) % 360;
+
+      return { h, s, l, hex: hslToHex(h, s, l) };
+    }
+
+    function generatePalette(anchors, desiredCount = 18, minContrast = 7) {
+      const results = [];
+      const seen = new Set();
+      let attempts = 0;
+      const maxAttempts = 8000;
+
+      for (const hex of anchors) {
+        const contrast = getContrastInfo(hex);
+        if (contrast.recommendedContrast >= minContrast && !seen.has(hex)) {
+          const hsl = hexToHsl(hex);
+          if (!isMuddy(hsl.h, hsl.s, hsl.l)) {
+            results.push({
+              hex,
+              source: "anchor",
+              contrast
+            });
+            seen.add(hex);
+          }
+        }
+      }
+
+      while (results.length < desiredCount && attempts < maxAttempts) {
+        attempts++;
+
+        const idx = Math.floor(Math.random() * anchors.length);
+        const a = anchors[idx];
+        const b = anchors[(idx + 1) % anchors.length];
+
+        const candidate = generateCandidateFromPair(a, b);
+        const roundedHex = candidate.hex.toLowerCase();
+
+        if (seen.has(roundedHex)) continue;
+        if (isMuddy(candidate.h, candidate.s, candidate.l)) continue;
+
+        const contrast = getContrastInfo(roundedHex);
+        if (contrast.recommendedContrast < minContrast || contrast.recommendedContrast > 21) continue;
+
+        results.push({
+          hex: roundedHex,
+          source: `${a} → ${b}`,
+          contrast
+        });
+        seen.add(roundedHex);
+      }
+
+      return { results, attempts };
+    }
+
+    function renderAnchors(anchors) {
+      anchorsEl.innerHTML = "";
+      anchors.forEach((hex) => {
+        const contrast = getContrastInfo(hex);
+        const div = document.createElement("div");
+        div.className = "anchor";
+        div.style.background = hex;
+        div.style.color = contrast.recommendedPair;
+        div.textContent = hex;
+        anchorsEl.appendChild(div);
+      });
+    }
+
+    function renderPalette(items, attempts) {
+      resultsEl.innerHTML = "";
+      warningEl.textContent = "";
+
+      if (!items.length) {
+        warningEl.textContent = "No colors passed the current filters. Try lowering the count or slightly lowering constraints.";
+        return;
+      }
+
+      items.forEach((item) => {
+        const blackPass = item.contrast.black >= Number(contrastInput.value);
+        const whitePass = item.contrast.white >= Number(contrastInput.value);
+
+        const swatch = document.createElement("div");
+        swatch.className = "swatch";
+        swatch.style.background = item.hex;
+        swatch.style.color = item.contrast.recommendedPair;
+
+        swatch.innerHTML = `
+          <div>
+            <div class="topline">
+              <div class="hex">${item.hex}</div>
+              <div class="small">
+                Recommended<br><strong>${item.contrast.recommendedPair}</strong>
+              </div>
+            </div>
+
+            <div class="meta">
+              <div>Black contrast: <strong>${item.contrast.black.toFixed(2)}:1</strong> ${blackPass ? "✓" : "—"}</div>
+              <div>White contrast: <strong>${item.contrast.white.toFixed(2)}:1</strong> ${whitePass ? "✓" : "—"}</div>
+              <div>Best contrast: <strong>${item.contrast.recommendedContrast.toFixed(2)}:1</strong></div>
+              <div>Source: <strong>${item.source}</strong></div>
+            </div>
+          </div>
+
+          <div class="demo-stack">
+            <div class="demo" style="background:#000000; color:${item.hex};">
+              <span class="demo-label">On black</span>
+              Sample text
+            </div>
+
+            <div class="demo" style="background:#ffffff; color:${item.hex}; border: 1px solid rgba(0,0,0,0.08);">
+              <span class="demo-label" style="color:#444;">On white</span>
+              Sample text
+            </div>
+          </div>
+        `;
+
+        swatch.addEventListener("click", async () => {
+          try {
+            await navigator.clipboard.writeText(item.hex);
+          } catch (e) {
+            console.log("Clipboard copy failed.");
+          }
+        });
+
+        resultsEl.appendChild(swatch);
+      });
+
+      if (items.length < Number(countInput.value)) {
+        warningEl.textContent = `Generated ${items.length} valid colors after ${attempts} attempts. The filters are intentionally strict.`;
+      }
+    }
+
+    let currentAnchors = [...anchorColors];
+
+    function run() {
+      const desiredCount = clamp(Number(countInput.value) || 18, 1, 60);
+      const minContrast = clamp(Number(contrastInput.value) || 7, 1, 21);
+
+      renderAnchors(currentAnchors);
+      const { results, attempts } = generatePalette(currentAnchors, desiredCount, minContrast);
+      renderPalette(results, attempts);
+    }
+
+    generateBtn.addEventListener("click", run);
+
+    shuffleBtn.addEventListener("click", () => {
+      currentAnchors = shuffleArray(currentAnchors);
+      run();
+    });
+
+    run();
+  </script>
+</body>
+</html>
